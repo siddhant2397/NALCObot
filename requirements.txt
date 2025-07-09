@@ -1,8 +1,7 @@
 ﻿streamlit
 langchain
-faiss-cpu
-PyMuPDF
-pandas
-unstructured
+langchain-community
 sentence-transformers
-huggingface-hub
+faiss-cpu
+PyPDF2
+unstructured
