@@ -181,6 +181,34 @@ def ask_gpt(question, context):
     return answer, input_tokens, output_tokens, cost
 
 st.title("📄 CISF NALCO Chat Bot")
+@st.cache_data(ttl=3600)
+def load_auth_list():
+    url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{GITHUB_FOLDER}/auth_list.xlsx"
+    df = pd.read_excel(url)
+    df["name"] = df["name"].str.strip().str.lower()
+    df["id"] = df["id"].astype(str).str.strip()
+    return df
+
+def authenticate(name, user_id, auth_df):
+    name = name.strip().lower()
+    user_id = str(user_id).strip()
+    return any((auth_df["name"] == name) & (auth_df["id"] == user_id))
+
+# -- Streamlit login form
+st.subheader("🔐 Login to Access Chatbot")
+with st.form("login_form"):
+    input_name = st.text_input("👤 Name")
+    input_id = st.text_input("🆔 Unique ID")
+    login = st.form_submit_button("Login")
+
+if login:
+    auth_df = load_auth_list()
+    if authenticate(input_name, input_id, auth_df):
+        st.success("✅ Access granted. Welcome!")
+    else:
+        st.error("❌ Access denied. Please check your name and ID.")
+        st.stop()
+
 
 question = st.text_input("Ask your question")
 
