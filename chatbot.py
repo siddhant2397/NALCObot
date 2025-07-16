@@ -5,15 +5,15 @@ import pandas as pd
 from PIL import Image
 from docx import Document
 import fitz  # PyMuPDF
-import openai
 import numpy as np
 import uuid
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from supabase import create_client, Client
+from openai import OpenAI
 
 # Load secrets from .streamlit/secrets.toml
-openai.api_key = st.secrets["openai_api_key"]
+client = OpenAI(api_key=st.secrets["openai_api_key"])
 OCR_SPACE_API_KEY = st.secrets["ocr_space_api_key"]
 SUPABASE_URL = st.secrets["supabase_url"]
 SUPABASE_API_KEY = st.secrets["supabase_api_key"]
@@ -88,11 +88,11 @@ def extract_pdf_text(filepath):
     return text
 
 def embed_text(text):
-    response = openai.Embedding.create(
+    response = client.embeddings.create(
         input=text,
         model=EMBEDDING_MODEL
     )
-    return np.array(response['data'][0]['embedding'], dtype=np.float32)
+    return np.array(response.data[0].embedding, dtype=np.float32)
 
 def store_embeddings(chunks):
     for chunk in chunks:
@@ -137,16 +137,16 @@ def split_text(text, chunk_size=500):
 
 def ask_gpt(question, context):
     prompt = f"Answer the following question based on the context:\n\nContext:\n{context}\n\nQuestion: {question}"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
         max_tokens=400
     )
-    answer = response['choices'][0]['message']['content']
-    usage = response['usage']
-    input_tokens = usage['prompt_tokens']
-    output_tokens = usage['completion_tokens']
+    answer = response.choices[0].message.content
+    usage = response.usage
+    input_tokens = usage.prompt_tokens
+    output_tokens = usage.completion_tokens
     cost = (input_tokens / 1000 * 0.0005) + (output_tokens / 1000 * 0.0015)
     return answer, input_tokens, output_tokens, cost
 
