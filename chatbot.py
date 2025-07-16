@@ -22,19 +22,20 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_API_KEY)
 GITHUB_USER = "siddhant2397"
 GITHUB_REPO = "NALCObot"
 GITHUB_BRANCH = "main"
+GITHUB_FOLDER = "data"
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
 
 @st.cache_data(ttl=3600)
 def list_github_files(user, repo, branch="main"):
-    api_url = f"https://api.github.com/repos/{user}/{repo}/contents/"
+    api_url = f"https://api.github.com/repos/{user}/{repo}/contents/{GITHUB_FOLDER}"
     response = requests.get(api_url)
     files = response.json()
     return [f for f in files if f['name'].endswith((".docx", ".xlsx", ".pdf"))]
 
 def fetch_file(file):
-    raw_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{file['name']}"
+    raw_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{GITHUB_FOLDER}/{file['name']}"
     response = requests.get(raw_url)
     with open(file['name'], "wb") as f:
         f.write(response.content)
