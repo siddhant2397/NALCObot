@@ -8,3 +8,4 @@ Pillow
 PyMuPDF
 scikit-learn
 supabase
+openpyxl
