@@ -183,7 +183,7 @@ def ask_gpt(question, context):
 st.title("📄 CISF NALCO Chat Bot")
 @st.cache_data(ttl=3600)
 def load_auth_list():
-    url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{GITHUB_FOLDER}/auth_list.xlsx"
+    url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/auth_list.xlsx"
     df = pd.read_excel(url)
     df["name"] = df["name"].str.strip().str.lower()
     df["id"] = df["id"].astype(str).str.strip()
