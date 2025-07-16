@@ -147,7 +147,7 @@ def get_top_chunks(question_embedding, k=3):
                     emb_list = json.loads(emb_list)
                 embeddings.append(np.array(emb_list, dtype=np.float32))
             except Exception as e:
-                st.warning(f\"⚠️ Skipping corrupted embedding: {e}\")
+                st.warning(f"⚠️ Skipping corrupted embedding: {e}")
 
     
 
