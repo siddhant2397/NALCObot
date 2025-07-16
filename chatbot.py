@@ -77,6 +77,7 @@ def extract_pdf_text(filepath):
     doc = fitz.open(filepath)
     text = " ".join([page.get_text() for page in doc])
     if len(text.strip()) < 100:
+        st.info(f"🔍 Attempting OCR on scanned PDF: {filepath}")
         images = [page.get_pixmap().pil_tobytes(format="PNG") for page in doc]
         for i, img_bytes in enumerate(images):
             with open(f"page_{i}.png", "wb") as f:
@@ -95,6 +96,7 @@ def embed_text(text):
     return np.array(response.data[0].embedding, dtype=np.float32)
 
 def store_embeddings(chunks):
+    count = 0
     for chunk in chunks:
         if chunk.strip():
             emb = embed_text(chunk).tolist()
@@ -103,6 +105,8 @@ def store_embeddings(chunks):
                 "content": chunk,
                 "embedding": emb
             }).execute()
+            count += 1
+    st.info(f"📦 Stored {count} non-empty chunks in Supabase.")
 
 def log_interaction(question, input_tokens, output_tokens, cost):
     supabase.table("chat_logs").insert({
@@ -172,8 +176,11 @@ if question:
 
     for file in files:
         local_name = fetch_file(file)
+        st.write(f"📄 Processing: {file['name']}")
         text = extract_text(local_name)
+        st.write(f"📏 Extracted length: {len(text)} characters")
         chunks = split_text(text)
+        st.write(f"🧩 Generated {len(chunks)} chunks")
         all_chunks.extend(chunks)
         os.remove(local_name)
 
@@ -208,4 +215,4 @@ if question:
         st.write(f"**Total output tokens:** {completion_sum}")
         st.write(f"**Estimated monthly cost:** ${cost_sum:.4f} USD")
     else:
-        st.warning("⚠️ No usable content was extracted from documents.")
+        st.warning("⚠️ No usable content was extracted from documents. Please check if the files contain readable text.")
