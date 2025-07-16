@@ -1,10 +1,10 @@
 streamlit
 openai
+requests
 pandas
 numpy
 python-docx
-pillow
+Pillow
 PyMuPDF
-psycopg2-binary
-requests
 scikit-learn
+supabase
