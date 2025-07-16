@@ -8,22 +8,19 @@ import fitz  # PyMuPDF
 import openai
 import numpy as np
 import uuid
-import psycopg2
-from psycopg2.extras import Json
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
+from supabase import create_client, Client
 
 # Load secrets from .streamlit/secrets.toml
 openai.api_key = st.secrets["openai_api_key"]
 OCR_SPACE_API_KEY = st.secrets["ocr_space_api_key"]
+SUPABASE_URL = st.secrets["supabase_url"]
+SUPABASE_API_KEY = st.secrets["supabase_api_key"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_API_KEY)
 
-SUPABASE_DB_URL = st.secrets["supabase_db_url"]
-SUPABASE_DB_USER = st.secrets["supabase_db_user"]
-SUPABASE_DB_PASS = st.secrets["supabase_db_pass"]
-SUPABASE_DB_NAME = st.secrets["supabase_db_name"]
-
-GITHUB_USER = "siddhant2397"
-GITHUB_REPO = "NALCObot"
+GITHUB_USER = "your-github-username"
+GITHUB_REPO = "your-repo"
 GITHUB_BRANCH = "main"
 
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -97,72 +94,39 @@ def embed_text(text):
     )
     return np.array(response['data'][0]['embedding'], dtype=np.float32)
 
-def connect_db():
-    return psycopg2.connect(
-        host=SUPABASE_DB_URL,
-        dbname=SUPABASE_DB_NAME,
-        user=SUPABASE_DB_USER,
-        password=SUPABASE_DB_PASS,
-        sslmode="require"
-    )
-
 def store_embeddings(chunks):
-    conn = connect_db()
-    cur = conn.cursor()
     for chunk in chunks:
         emb = embed_text(chunk).tolist()
-        cur.execute(
-            "INSERT INTO documents (id, content, embedding) VALUES (%s, %s, %s)",
-            (str(uuid.uuid4()), chunk, Json(emb))
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+        supabase.table("documents").insert({
+            "id": str(uuid.uuid4()),
+            "content": chunk,
+            "embedding": emb
+        }).execute()
 
 def log_interaction(question, input_tokens, output_tokens, cost):
-    conn = connect_db()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS chat_logs (
-            id UUID PRIMARY KEY,
-            timestamp TIMESTAMP,
-            question TEXT,
-            prompt_tokens INTEGER,
-            completion_tokens INTEGER,
-            cost NUMERIC
-        )
-    """)
-    cur.execute("""
-        INSERT INTO chat_logs (id, timestamp, question, prompt_tokens, completion_tokens, cost)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, (str(uuid.uuid4()), datetime.utcnow(), question, input_tokens, output_tokens, cost))
-    conn.commit()
-    cur.close()
-    conn.close()
+    supabase.table("chat_logs").insert({
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "question": question,
+        "prompt_tokens": input_tokens,
+        "completion_tokens": output_tokens,
+        "cost": round(cost, 6)
+    }).execute()
 
 def get_monthly_usage():
-    conn = connect_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT COALESCE(SUM(prompt_tokens), 0),
-               COALESCE(SUM(completion_tokens), 0),
-               COALESCE(SUM(cost), 0)
-        FROM chat_logs
-        WHERE DATE_TRUNC('month', timestamp) = DATE_TRUNC('month', CURRENT_DATE)
-    """)
-    result = cur.fetchone()
-    conn.close()
-    return result
+    response = supabase.table("chat_logs").select("*").execute()
+    rows = response.data
+    current_month = datetime.utcnow().month
+    prompt_sum = sum(r['prompt_tokens'] for r in rows if datetime.fromisoformat(r['timestamp']).month == current_month)
+    completion_sum = sum(r['completion_tokens'] for r in rows if datetime.fromisoformat(r['timestamp']).month == current_month)
+    cost_sum = sum(r['cost'] for r in rows if datetime.fromisoformat(r['timestamp']).month == current_month)
+    return prompt_sum, completion_sum, cost_sum
 
 def get_top_chunks(question_embedding, k=3):
-    conn = connect_db()
-    cur = conn.cursor()
-    cur.execute("SELECT content, embedding FROM documents")
-    results = cur.fetchall()
-    conn.close()
-
-    chunks = [r[0] for r in results]
-    embeddings = [np.array(r[1], dtype=np.float32) for r in results]
+    response = supabase.table("documents").select("content", "embedding").execute()
+    results = response.data
+    chunks = [r['content'] for r in results]
+    embeddings = [np.array(r['embedding'], dtype=np.float32) for r in results]
     similarities = cosine_similarity([question_embedding], embeddings)[0]
     top_k_idx = similarities.argsort()[-k:][::-1]
     return [chunks[i] for i in top_k_idx]
@@ -186,7 +150,7 @@ def ask_gpt(question, context):
     cost = (input_tokens / 1000 * 0.0005) + (output_tokens / 1000 * 0.0015)
     return answer, input_tokens, output_tokens, cost
 
-st.title("📄 Organizational Document Chatbot (GPT-3.5 + OCR + Usage Tracker)")
+st.title("📄 Organizational Document Chatbot (GPT-3.5 + OCR + Supabase)")
 
 question = st.text_input("Ask your question about the documents")
 
