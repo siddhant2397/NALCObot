@@ -1,7 +1,10 @@
-﻿streamlit
-langchain
-langchain-community
-sentence-transformers
-faiss-cpu
-PyPDF2
-unstructured
+streamlit
+openai
+pandas
+numpy
+python-docx
+pillow
+PyMuPDF
+psycopg2-binary
+requests
+scikit-learn
