@@ -180,12 +180,12 @@ def ask_gpt(question, context):
     cost = (input_tokens / 1000 * 0.0005) + (output_tokens / 1000 * 0.0015)
     return answer, input_tokens, output_tokens, cost
 
-st.title("📄 Organizational Document Chatbot (GPT-3.5 + OCR + Supabase)")
+st.title("📄 CISF NALCO Chat Bot")
 
-question = st.text_input("Ask your question about the documents")
+question = st.text_input("Ask your question")
 
 if question:
-    st.info("📂 Fetching and processing documents from GitHub...")
+    st.info("📂 Processing documents")
     files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
     all_chunks = []
 
@@ -210,7 +210,7 @@ if question:
             st.stop()
 
         context = "\n---\n".join(top_chunks)
-        st.info("💬 Generating answer from GPT-3.5...")
+        st.info("💬 Generating answer")
         answer, input_tokens, output_tokens, cost = ask_gpt(question, context)
         log_interaction(question, input_tokens, output_tokens, cost)
 
