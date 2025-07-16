@@ -11,6 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from supabase import create_client, Client
 from openai import OpenAI
+import json
 
 # Load secrets from .streamlit/secrets.toml
 client = OpenAI(api_key=st.secrets["openai_api_key"])
@@ -104,7 +105,7 @@ def store_embeddings(chunks):
             supabase.table("documents").insert({
                 "id": str(uuid.uuid4()),
                 "content": chunk,
-                "embedding": emb
+                "embedding": json.dumps(emb)
             }).execute()
             count += 1
     st.info(f"📦 Stored {count} non-empty chunks in Supabase.")
@@ -137,7 +138,20 @@ def get_top_chunks(question_embedding, k=3):
         return []
 
     chunks = [r['content'] for r in results]
-    embeddings = [np.array(r['embedding'], dtype=np.float32) for r in results if r['embedding']]
+    embeddings = []
+    for r in results:
+        if r['embedding']:
+            try:
+                emb_list = r['embedding']
+                if isinstance(emb_list, str):
+                    emb_list = json.loads(emb_list)
+                embeddings.append(np.array(emb_list, dtype=np.float32))
+            except Exception as e:
+                st.warning(f\"⚠️ Skipping corrupted embedding: {e}\")
+
+    
+
+
 
     if not embeddings:
         st.warning("⚠️ No valid embeddings available.")
