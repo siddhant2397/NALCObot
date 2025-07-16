@@ -96,12 +96,13 @@ def embed_text(text):
 
 def store_embeddings(chunks):
     for chunk in chunks:
-        emb = embed_text(chunk).tolist()
-        supabase.table("documents").insert({
-            "id": str(uuid.uuid4()),
-            "content": chunk,
-            "embedding": emb
-        }).execute()
+        if chunk.strip():
+            emb = embed_text(chunk).tolist()
+            supabase.table("documents").insert({
+                "id": str(uuid.uuid4()),
+                "content": chunk,
+                "embedding": emb
+            }).execute()
 
 def log_interaction(question, input_tokens, output_tokens, cost):
     supabase.table("chat_logs").insert({
@@ -125,8 +126,18 @@ def get_monthly_usage():
 def get_top_chunks(question_embedding, k=3):
     response = supabase.table("documents").select("content", "embedding").execute()
     results = response.data
+
+    if not results:
+        st.warning("⚠️ No document embeddings found in the database.")
+        return []
+
     chunks = [r['content'] for r in results]
-    embeddings = [np.array(r['embedding'], dtype=np.float32) for r in results]
+    embeddings = [np.array(r['embedding'], dtype=np.float32) for r in results if r['embedding']]
+
+    if not embeddings:
+        st.warning("⚠️ No valid embeddings available.")
+        return []
+
     similarities = cosine_similarity([question_embedding], embeddings)[0]
     top_k_idx = similarities.argsort()[-k:][::-1]
     return [chunks[i] for i in top_k_idx]
@@ -166,29 +177,35 @@ if question:
         all_chunks.extend(chunks)
         os.remove(local_name)
 
-    st.success(f"✅ Loaded {len(files)} files with {len(all_chunks)} chunks.")
-    store_embeddings(all_chunks)
+    if all_chunks:
+        st.success(f"✅ Loaded {len(files)} files with {len(all_chunks)} chunks.")
+        store_embeddings(all_chunks)
 
-    question_embedding = embed_text(question)
-    top_chunks = get_top_chunks(question_embedding, k=3)
-    context = "\n---\n".join(top_chunks)
+        question_embedding = embed_text(question)
+        top_chunks = get_top_chunks(question_embedding, k=3)
 
-    st.info("💬 Generating answer from GPT-3.5...")
-    answer, input_tokens, output_tokens, cost = ask_gpt(question, context)
-    log_interaction(question, input_tokens, output_tokens, cost)
+        if not top_chunks:
+            st.stop()
 
-    st.success("✅ Answer:")
-    st.write(answer)
+        context = "\n---\n".join(top_chunks)
+        st.info("💬 Generating answer from GPT-3.5...")
+        answer, input_tokens, output_tokens, cost = ask_gpt(question, context)
+        log_interaction(question, input_tokens, output_tokens, cost)
 
-    st.markdown("---")
-    st.subheader("📊 Cost Summary for This Query")
-    st.write(f"**Prompt tokens:** {input_tokens}")
-    st.write(f"**Response tokens:** {output_tokens}")
-    st.write(f"**Estimated cost:** ${cost:.6f} USD")
+        st.success("✅ Answer:")
+        st.write(answer)
 
-    prompt_sum, completion_sum, cost_sum = get_monthly_usage()
-    st.markdown("---")
-    st.subheader("📆 Monthly Usage Summary")
-    st.write(f"**Total input tokens:** {prompt_sum}")
-    st.write(f"**Total output tokens:** {completion_sum}")
-    st.write(f"**Estimated monthly cost:** ${cost_sum:.4f} USD")
+        st.markdown("---")
+        st.subheader("📊 Cost Summary for This Query")
+        st.write(f"**Prompt tokens:** {input_tokens}")
+        st.write(f"**Response tokens:** {output_tokens}")
+        st.write(f"**Estimated cost:** ${cost:.6f} USD")
+
+        prompt_sum, completion_sum, cost_sum = get_monthly_usage()
+        st.markdown("---")
+        st.subheader("📆 Monthly Usage Summary")
+        st.write(f"**Total input tokens:** {prompt_sum}")
+        st.write(f"**Total output tokens:** {completion_sum}")
+        st.write(f"**Estimated monthly cost:** ${cost_sum:.4f} USD")
+    else:
+        st.warning("⚠️ No usable content was extracted from documents.")
