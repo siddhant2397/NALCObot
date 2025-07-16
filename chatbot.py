@@ -19,8 +19,8 @@ SUPABASE_URL = st.secrets["supabase_url"]
 SUPABASE_API_KEY = st.secrets["supabase_api_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_API_KEY)
 
-GITHUB_USER = "your-github-username"
-GITHUB_REPO = "your-repo"
+GITHUB_USER = "siddhant2397"
+GITHUB_REPO = "NALCObot"
 GITHUB_BRANCH = "main"
 
 EMBEDDING_MODEL = "text-embedding-3-small"
