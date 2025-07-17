@@ -254,7 +254,6 @@ if question:
         os.remove(local_name)
 
     if all_chunks:
-        store_embeddings(all_chunks, selected_file_names)
 
         question_embedding = embed_text(question)
         top_chunks = get_top_chunks(question_embedding, selected_file_names, k=3)
