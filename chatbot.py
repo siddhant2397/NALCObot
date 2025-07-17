@@ -105,7 +105,7 @@ def embed_text(text):
 
 
 
-def store_embeddings(chunks):
+def store_embeddings(chunks, filename):
     count = 0
 
     # Step 1: Fetch existing hashes from Supabase
@@ -129,6 +129,7 @@ def store_embeddings(chunks):
         supabase.table("documents").insert({
             "id": str(uuid.uuid4()),
             "hash": chunk_hash,
+            "filename": filename,
             "content": chunk,
             "embedding": json.dumps(emb)
         }).execute()
@@ -156,8 +157,13 @@ def get_monthly_usage():
     cost_sum = sum(r['cost'] for r in rows if datetime.fromisoformat(r['timestamp']).month == current_month)
     return prompt_sum, completion_sum, cost_sum
 
-def get_top_chunks(question_embedding, k=3):
-    response = supabase.table("documents").select("content", "embedding").execute()
+def get_top_chunks(question_embedding, selected_filenames, k=3):
+    if not selected_filenames:
+        return []
+    query = supabase.table("documents").select("content", "embedding").or_(
+        ",".join([f"filename.eq.{fname}" for fname in selected_filenames])
+    )
+    response = response = query.execute()
     results = response.data
 
     if not results:
@@ -214,24 +220,26 @@ def ask_gpt(question, context):
     return answer, input_tokens, output_tokens, cost
 
 st.title("📄 CISF NALCO Chat Bot")
+st.info("📂 Fetching list of documents from GitHub...")
+available_files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
+file_names = [f["name"] for f in available_files]
+
+selected_file_names = st.multiselect(
+    "📂 Select document(s) to use",
+    file_names,
+    default=None
+)
+
+if not selected_file_names:
+    st.warning("⚠️ Please select at least one file to proceed.")
+    st.stop()
+
+selected_files = [f for f in available_files if f["name"] in selected_file_names]
+
 question = st.text_input("Ask your question")
 
 if question:
     st.info("📂 Fetching list of documents from GitHub...")
-    available_files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
-    file_names = [f["name"] for f in available_files]
-
-    selected_file_names = st.multiselect(
-        "📂 Select document(s) to use",
-        file_names,
-        default=file_names  # Optional: pre-select all
-    )
-
-    selected_files = [f for f in available_files if f["name"] in selected_file_names]
-
-    if not selected_files:
-        st.warning("⚠️ Please select at least one file to proceed.")
-        st.stop()
 
     all_chunks = []
     for file in selected_files:
@@ -242,14 +250,14 @@ if question:
         chunks = split_text(text)
         st.write(f"🧩 Generated {len(chunks)} chunks")
         all_chunks.extend(chunks)
+        store_embeddings(all_chunks, file['name'])
         os.remove(local_name)
 
     if all_chunks:
-        st.success(f"✅ Loaded {len(selected_files)} file(s) with {len(all_chunks)} chunks.")
-        store_embeddings(all_chunks)
+        store_embeddings(all_chunks, selected_file_names)
 
         question_embedding = embed_text(question)
-        top_chunks = get_top_chunks(question_embedding, k=3)
+        top_chunks = get_top_chunks(question_embedding, selected_file_names, k=3)
 
         if not top_chunks:
             st.stop()
