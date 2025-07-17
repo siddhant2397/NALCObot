@@ -205,57 +205,57 @@ if login:
     auth_df = load_auth_list()
     if authenticate(input_name, input_id, auth_df):
         st.success("✅ Access granted. Welcome!")
+        question = st.text_input("Ask your question")
+        if question:
+            st.info("📂 Processing documents")
+            files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
+            all_chunks = []
+            
+            for file in files:
+                local_name = fetch_file(file)
+                st.write(f"📄 Processing: {file['name']}")
+                text = extract_text(local_name)
+                st.write(f"📏 Extracted length: {len(text)} characters")
+                chunks = split_text(text)
+                st.write(f"🧩 Generated {len(chunks)} chunks")
+                all_chunks.extend(chunks)
+                os.remove(local_name)
+            
+            if all_chunks:
+                st.success(f"✅ Loaded {len(files)} files with {len(all_chunks)} chunks.")
+                store_embeddings(all_chunks)
+                
+                question_embedding = embed_text(question)
+                top_chunks = get_top_chunks(question_embedding, k=3)
+                
+                if not top_chunks:
+                    st.stop()
+
+                context = "\n---\n".join(top_chunks)
+                st.info("💬 Generating answer")
+                answer, input_tokens, output_tokens, cost = ask_gpt(question, context)
+                log_interaction(question, input_tokens, output_tokens, cost)
+                
+                st.success("✅ Answer:")
+                st.write(answer)
+                
+                st.markdown("---")
+                st.subheader("📊 Cost Summary for This Query")
+                st.write(f"**Prompt tokens:** {input_tokens}")
+                st.write(f"**Response tokens:** {output_tokens}")
+                st.write(f"**Estimated cost:** ${cost:.6f} USD")
+                
+                prompt_sum, completion_sum, cost_sum = get_monthly_usage()
+                st.markdown("---")
+                st.subheader("📆 Monthly Usage Summary")
+                st.write(f"**Total input tokens:** {prompt_sum}")
+                st.write(f"**Total output tokens:** {completion_sum}")
+                st.write(f"**Estimated monthly cost:** ${cost_sum:.4f} USD")
+            else:
+                st.warning("⚠️ No usable content was extracted from documents. Please check if the files contain readable text.")
+
     else:
         st.error("❌ Access denied. Please check your name and ID.")
         st.stop()
 
 
-question = st.text_input("Ask your question")
-
-if question:
-    st.info("📂 Processing documents")
-    files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
-    all_chunks = []
-
-    for file in files:
-        local_name = fetch_file(file)
-        st.write(f"📄 Processing: {file['name']}")
-        text = extract_text(local_name)
-        st.write(f"📏 Extracted length: {len(text)} characters")
-        chunks = split_text(text)
-        st.write(f"🧩 Generated {len(chunks)} chunks")
-        all_chunks.extend(chunks)
-        os.remove(local_name)
-
-    if all_chunks:
-        st.success(f"✅ Loaded {len(files)} files with {len(all_chunks)} chunks.")
-        store_embeddings(all_chunks)
-
-        question_embedding = embed_text(question)
-        top_chunks = get_top_chunks(question_embedding, k=3)
-
-        if not top_chunks:
-            st.stop()
-
-        context = "\n---\n".join(top_chunks)
-        st.info("💬 Generating answer")
-        answer, input_tokens, output_tokens, cost = ask_gpt(question, context)
-        log_interaction(question, input_tokens, output_tokens, cost)
-
-        st.success("✅ Answer:")
-        st.write(answer)
-
-        st.markdown("---")
-        st.subheader("📊 Cost Summary for This Query")
-        st.write(f"**Prompt tokens:** {input_tokens}")
-        st.write(f"**Response tokens:** {output_tokens}")
-        st.write(f"**Estimated cost:** ${cost:.6f} USD")
-
-        prompt_sum, completion_sum, cost_sum = get_monthly_usage()
-        st.markdown("---")
-        st.subheader("📆 Monthly Usage Summary")
-        st.write(f"**Total input tokens:** {prompt_sum}")
-        st.write(f"**Total output tokens:** {completion_sum}")
-        st.write(f"**Estimated monthly cost:** ${cost_sum:.4f} USD")
-    else:
-        st.warning("⚠️ No usable content was extracted from documents. Please check if the files contain readable text.")
