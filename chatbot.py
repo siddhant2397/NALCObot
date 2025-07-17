@@ -163,7 +163,7 @@ def get_top_chunks(question_embedding, selected_filenames, k=3):
     query = supabase.table("documents").select("content", "embedding").or_(
         ",".join([f"filename.eq.{fname}" for fname in selected_filenames])
     )
-    response = response = query.execute()
+    response = query.execute()
     results = response.data
 
     if not results:
