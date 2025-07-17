@@ -12,6 +12,7 @@ from datetime import datetime
 from supabase import create_client, Client
 from openai import OpenAI
 import json
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Load secrets from .streamlit/secrets.toml
 client = OpenAI(api_key=st.secrets["openai_api_key"])
@@ -65,6 +66,10 @@ def extract_text(filepath):
 def extract_docx_text(filepath):
     doc = Document(filepath)
     text = "\n".join([p.text for p in doc.paragraphs])
+    for table in doc.tables:
+        for row in table.rows:
+            row_text = "\t".join(cell.text.strip() for cell in row.cells)
+            text += "\n" + row_text
     for rel in doc.part._rels:
         rel = doc.part._rels[rel]
         if "image" in rel.target_ref:
@@ -161,9 +166,15 @@ def get_top_chunks(question_embedding, k=3):
     top_k_idx = similarities.argsort()[-k:][::-1]
     return [chunks[i] for i in top_k_idx]
 
-def split_text(text, chunk_size=500):
-    words = text.split()
-    return [" ".join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
+
+def split_text(text, chunk_size=500, chunk_overlap=100):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ".", " ", ""]
+    )
+    return splitter.split_text(text)
+
 
 def ask_gpt(question, context):
     prompt = f"Answer the following question based on the context:\n\nContext:\n{context}\n\nQuestion: {question}"
