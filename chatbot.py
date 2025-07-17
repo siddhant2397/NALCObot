@@ -214,15 +214,27 @@ def ask_gpt(question, context):
     return answer, input_tokens, output_tokens, cost
 
 st.title("📄 CISF NALCO Chat Bot")
-
 question = st.text_input("Ask your question")
 
 if question:
-    st.info("📂 Processing documents")
-    files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
-    all_chunks = []
+    st.info("📂 Fetching list of documents from GitHub...")
+    available_files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
+    file_names = [f["name"] for f in available_files]
 
-    for file in files:
+    selected_file_names = st.multiselect(
+        "📂 Select document(s) to use",
+        file_names,
+        default=file_names  # Optional: pre-select all
+    )
+
+    selected_files = [f for f in available_files if f["name"] in selected_file_names]
+
+    if not selected_files:
+        st.warning("⚠️ Please select at least one file to proceed.")
+        st.stop()
+
+    all_chunks = []
+    for file in selected_files:
         local_name = fetch_file(file)
         st.write(f"📄 Processing: {file['name']}")
         text = extract_text(local_name)
@@ -233,7 +245,7 @@ if question:
         os.remove(local_name)
 
     if all_chunks:
-        st.success(f"✅ Loaded {len(files)} files with {len(all_chunks)} chunks.")
+        st.success(f"✅ Loaded {len(selected_files)} file(s) with {len(all_chunks)} chunks.")
         store_embeddings(all_chunks)
 
         question_embedding = embed_text(question)
