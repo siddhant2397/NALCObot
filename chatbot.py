@@ -205,8 +205,12 @@ if login:
     auth_df = load_auth_list()
     if authenticate(input_name, input_id, auth_df):
         st.success("✅ Access granted. Welcome!")
-        question = st.text_input("Ask your question")
-        if question:
+        st.subheader("💬 Ask your question")
+        with st.form("question_form"):
+            question = st.text_input("Ask your question")
+            submit_question = st.form_submit_button("Submit")
+            
+        if submit_question and question:
             st.info("📂 Processing documents")
             files = list_github_files(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
             all_chunks = []
