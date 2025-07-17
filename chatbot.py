@@ -13,6 +13,7 @@ from supabase import create_client, Client
 from openai import OpenAI
 import json
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import hashlib
 
 # Load secrets from .streamlit/secrets.toml
 client = OpenAI(api_key=st.secrets["openai_api_key"])
@@ -102,18 +103,39 @@ def embed_text(text):
     )
     return np.array(response.data[0].embedding, dtype=np.float32)
 
+
+
 def store_embeddings(chunks):
     count = 0
+
+    # Step 1: Fetch existing hashes from Supabase
+    existing = supabase.table("documents").select("hash").execute()
+    existing_hashes = {row["hash"] for row in existing.data}
+
     for chunk in chunks:
-        if chunk.strip():
-            emb = embed_text(chunk).tolist()
-            supabase.table("documents").insert({
-                "id": str(uuid.uuid4()),
-                "content": chunk,
-                "embedding": json.dumps(emb)
-            }).execute()
-            count += 1
-    st.info(f"📦 Stored {count} non-empty chunks in Supabase.")
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        # Step 2: Compute hash of the chunk
+        chunk_hash = hashlib.sha256(chunk.encode("utf-8")).hexdigest()
+
+        # Step 3: Skip if already present
+        if chunk_hash in existing_hashes:
+            continue
+
+        # Step 4: Embed and store if new
+        emb = embed_text(chunk).tolist()
+        supabase.table("documents").insert({
+            "id": str(uuid.uuid4()),
+            "hash": chunk_hash,
+            "content": chunk,
+            "embedding": json.dumps(emb)
+        }).execute()
+        count += 1
+
+    st.info(f"📦 Stored {count} new chunks in Supabase.")
+
 
 def log_interaction(question, input_tokens, output_tokens, cost):
     supabase.table("chat_logs").insert({
