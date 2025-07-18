@@ -213,7 +213,7 @@ def ask_gpt(question, context):
     cost = (input_tokens / 1000 * 0.0005) + (output_tokens / 1000 * 0.0015)
     return answer, input_tokens, output_tokens, cost
 
-st.title("📄 CISF NALCO Chat Bot")
+st.title("📄 CISF Chat Bot")
 
 question = st.text_input("Ask your question")
 
