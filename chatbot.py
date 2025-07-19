@@ -34,8 +34,24 @@ EMBEDDING_DIM = 1536
 def list_github_files(user, repo, branch="main"):
     api_url = f"https://api.github.com/repos/{user}/{repo}/contents/{GITHUB_FOLDER}"
     response = requests.get(api_url)
-    files = response.json()
-    return [f for f in files if f['name'].endswith((".docx", ".xlsx", ".pdf"))]
+    if response.status_code != 200:
+        st.error(f"GitHub API error: {response.status_code} - {response.text}")
+        return []
+    try:
+        files = response.json()
+        # Ensure it's a list of dicts with 'name' key
+        valid_files = [
+            f for f in files
+            if isinstance(f, dict)
+            and "name" in f
+            and f["name"].endswith((".docx", ".xlsx", ".pdf"))
+        ]
+        return valid_files
+    except Exception as e:
+        st.error(f"Failed to parse GitHub file list: {e}")
+        return []
+
+        
 
 def fetch_file(file):
     raw_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/{GITHUB_FOLDER}/{file['name']}"
