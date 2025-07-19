@@ -39,6 +39,7 @@ def list_github_files(user, repo, branch="main"):
         return []
     try:
         files = response.json()
+        st.write("🔎 Raw response from GitHub API:", files)
         # Ensure it's a list of dicts with 'name' key
         valid_files = [
             f for f in files
