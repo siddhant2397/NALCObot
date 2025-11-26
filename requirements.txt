@@ -10,4 +10,5 @@ scikit-learn
 supabase
 openpyxl
 langchain-text-splitters
+langchain
 
