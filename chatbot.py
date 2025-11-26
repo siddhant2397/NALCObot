@@ -12,7 +12,7 @@ from datetime import datetime
 from supabase import create_client, Client
 from openai import OpenAI
 import json
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import hashlib
 
 # Load secrets from .streamlit/secrets.toml
