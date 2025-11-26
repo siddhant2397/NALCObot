@@ -9,4 +9,5 @@ PyMuPDF
 scikit-learn
 supabase
 openpyxl
-langchain
+langchain-text-splitters
+
